@@ -26,7 +26,12 @@ path name of HDF5 file.}
 \item{transpose}{Whether or not to transpose the read matrix. Only works for 
 a 2-dimension array-like data.}
 
-\item{toS4.func}{A function to convert the read R list into an S4 object.}
+\item{toS4.func}{A function to convert the read R list into an S4 object. It 
+must take two arguments: 
+\itemize{
+\item \code{robj}: The input R list
+\item \code{S4Class}: Strings the specify the S4 class name.
+}}
 }
 \value{
 The load R object. Currently support \code{vector}, \code{matrix}, 

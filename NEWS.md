@@ -1,6 +1,13 @@
+# hdf5r.Extra 0.0.3
+## Bug fixes
+* Fixed bugs caused by `h5Write` when transform an S4 object to list.
+
+## Improvement
+* Clarify usage of `toS4.func` for `h5Read`.
+
 # hdf5r.Extra 0.0.2
 ## Bug fixes
-* Fixed bugs caused by `H5Backup` in old R release platform.
+* Fixed bugs caused by `h5Backup` in old R release platform.
 * Fixed bugs caused by not using `tempfile` in examples.
 
 ## Improvement
