@@ -10,26 +10,14 @@
     identical(x = x$get_obj_name(), y = y$get_obj_name())
 }
 
-## h5group check existing ======================================================
-
-.h5group_exist <- function(h5group, name, ...) {
-  if (identical(x = name, y = "/")) {
-    return(TRUE)
-  }
-  return(tryCatch(
-    expr = h5group$exists(name = name, ...),
-    error = function(e) FALSE
-  ))
-}
-
 ## Exclude hdf5 link names =====================================================
-
 .exclude_h5_links <- function(all_links, exclude) {
   exclude <- vapply(
     X = exclude, 
     FUN = h5AbsLinkName, 
     FUN.VALUE = character(length = 1L)
   )
+  exclude <- gsub(pattern = "\\/*$", replacement = "", x = exclude)
   keep_links0 <- setdiff(all_links, exclude)
   keep_links <- keep_links0
   while (any(!keep_links %in% "/")) {
@@ -62,8 +50,9 @@
   return(attr_data)
 }
 
+#' @importFrom hdf5r h5garbage_collect
 .h5attr_overwrite <- function(h5obj, which, overwrite = TRUE) {
-  if (!h5obj$attr_exists(attr_name = which)) {
+  if (!h5obj$attr_exists_by_name(attr_name = which, obj_name = ".")) {
     return(invisible(x = NULL))
   }
   if (!overwrite) {
@@ -73,11 +62,12 @@
       "\n  Object: ", h5obj$get_obj_name(),
       "\n  Attribute: ", which, 
       "\nSet 'overwrite = TRUE' to overwrite it.",
-      immediate. = TRUE, call. = FALSE
+      immediate. = TRUE
     )
     return(invisible(x = NULL))
   }
-  h5obj$attr_delete(attr_name = which)
+  h5obj$attr_delete_by_name(attr_name = which, obj_name = ".")
+  h5garbage_collect()
   return(invisible(x = NULL))
 }
 
@@ -98,30 +88,32 @@
     h5space <- H5S$new(dims = 0, maxdims = 0)
     on.exit(expr = h5space$close(), add = TRUE)
     h5a <- h5obj$create_attr(
-      attr_name = which, 
+      attr_name = "column-order", 
       dtype = h5GuessDtype(x = robj),
       space = h5space
     )
-    on.exit(expr = h5a$close(), add = TRUE)
     return(invisible(x = NULL))
   }
   if (check.scalar && is_scalar_atomic(x = robj)) {
     h5space <- H5S$new(type = "scalar")
-    on.exit(expr = h5space$close(), add = TRUE)
+    on.exit(expr = h5space$close())
   }
-  h5a <- h5obj$create_attr(
+  attr_obj <- h5obj$create_attr_by_name(
     attr_name = which, 
+    obj_name = ".", 
     robj = robj,
     space = h5space,
     dtype = h5GuessDtype(x = robj, stype = stype)
   )
-  on.exit(expr = h5a$close(), add = TRUE)
+  on.exit(expr = attr_obj$close(), add = TRUE)
   return(invisible(x = NULL))
 }
 
+#' @importFrom hdf5r h5garbage_collect
 .h5attr_delete <- function(h5obj, which) {
-  if (h5obj$attr_exists(attr_name = which)) {
-    h5obj$attr_delete(attr_name = which)
+  if (h5obj$attr_exists_by_name(attr_name = which, obj_name = ".")) {
+    h5obj$attr_delete_by_name(attr_name = which, obj_name = ".")
+    h5garbage_collect()
   }
   return(invisible(x = NULL))
 }
@@ -133,7 +125,7 @@
     to.which,
     overwrite = TRUE
 ) {
-  if (!from.h5obj$attr_exists(attr_name = from.which)) {
+  if (!from.h5obj$attr_exists_by_name(attr_name = from.which, obj_name = ".")) {
     stop(
       "\nSource attribute doesn't exist:",
       "\n  File: ", from.h5obj$get_filename(),
@@ -145,11 +137,11 @@
     identical(x = from.which, y = to.which)
   if (is.identical) {
     warning(
-      "No copying. Source attribute is identical to the destination: ",
+      "Source attribute is identical to the destination, skip copying: ",
       "\n  File: ", from.h5obj$get_filename(),
       "\n  Object: ", from.h5obj$get_obj_name(),
       "\n  Attribute: ", from.which,
-      immediate. = TRUE, call. = FALSE
+      immediate. = TRUE
     )
     return(invisible(x = NULL))
   }
@@ -164,8 +156,9 @@
     expr = from.h5a$read(),
     error = function(e) NULL
   )
-  h5a <- to.h5obj$create_attr(
+  h5a <- to.h5obj$create_attr_by_name(
     attr_name = to.which, 
+    obj_name = ".", 
     robj = robj,
     space = h5space,
     dtype = h5dtype
@@ -184,7 +177,7 @@
 ) {
   from.h5obj <- h5Open(x = from.h5fh, name = from.name)
   if (!identical(x = from.h5obj, y = from.h5fh)) {
-    on.exit(expr = from.h5obj$close(), add = TRUE)
+    on.exit(expr = from.h5obj$close())
   }
   to.h5obj <- h5Open(x = to.h5fh, name = to.name)
   if (!identical(x = to.h5obj, y = to.h5fh)) {
@@ -203,7 +196,7 @@
   return(invisible(x = NULL))
 }
 
-## H5 copy =====================================================================
+## H5 copy or delete ===========================================================
 
 .h5copy_same_file <- function(
     h5.file, 
@@ -215,8 +208,8 @@
 ) {
   if (identical(x = from.name, y = to.name)) {
     warning(
-      "No copying. The source object is identical to the destination. ",
-      immediate. = TRUE, call. = FALSE
+      "The source object is identical to the destination, skip copying.",
+      immediate. = TRUE
     )
     return(invisible(x = NULL))
   }
@@ -230,7 +223,7 @@
       warning(
         "Destination object already exists. ",
         "Set 'overwrite = TRUE' to remove it.",
-        immediate. = TRUE, call. = FALSE
+        immediate. = TRUE
       )
       return(invisible(x = NULL))
     }
@@ -250,7 +243,6 @@
     dst_name = to.name, 
     ...
   )
-  h5fh$flush()
   .h5attr_copy_all(
     from.h5fh = h5fh,
     from.name = from.name,
@@ -270,7 +262,23 @@
     verbose = TRUE,
     ...
 ) {
-  if (identical(x = to.name, y = "/")) {
+  if (!identical(x = to.name, y = "/")) {
+    to.h5fh <- h5TryOpen(filename = to.file, mode = "a")
+    if (h5Exists(x = to.h5fh, name = to.name)) {
+      if (!overwrite) {
+        warning(
+          "Destination object already exists. ",
+          "Set 'overwrite = TRUE' to remove it.",
+          immediate. = TRUE
+        )
+        return(invisible(x = NULL))
+      }
+      if (verbose) {
+        message("Destination object already exists, removing it.")
+      }
+      to.h5fh$link_delete(name = to.name)
+    }
+  } else {
     if (file.exists(to.file) && !overwrite) {
       warning(
         "Destination file already exists. ",
@@ -287,25 +295,8 @@
       return(invisible(x = NULL))
     }
     to.h5fh <- h5TryOpen(filename = to.file, mode = "w")
-    on.exit(expr = to.h5fh$close(), add = TRUE)
-  } else {
-    to.h5fh <- h5TryOpen(filename = to.file, mode = "a")
-    on.exit(expr = to.h5fh$close(), add = TRUE)
-    if (h5Exists(x = to.h5fh, name = to.name)) {
-      if (!overwrite) {
-        warning(
-          "Destination object already exists. ",
-          "Set 'overwrite = TRUE' to remove it.",
-          immediate. = TRUE, call. = FALSE
-        )
-        return(invisible(x = NULL))
-      }
-      if (verbose) {
-        message("Destination object already exists, removing it.")
-      }
-      to.h5fh$link_delete(name = to.name)
-    }
   }
+  on.exit(expr = to.h5fh$close())
   h5fh <- h5TryOpen(filename = from.file, mode = "r")
   on.exit(expr = h5fh$close(), add = TRUE)
   if (!h5Exists(x = h5fh, name = from.name)) {
@@ -332,8 +323,6 @@
   return(invisible(x = NULL))
 }
 
-## h5 delete ===================================================================
-
 .h5delete <- function(h5obj, name, verbose = TRUE, ...) {
   if (verbose) {
     message(
@@ -344,10 +333,7 @@
     )
   }
   if (!h5Exists(x = h5obj, name = name)) {
-    warning(
-      "The H5 object to be deleted doesn't exists.", 
-      immediate. = TRUE, call. = FALSE
-    )
+    warning("The H5 object to be deleted doesn't exists.", immediate. = TRUE)
     return(invisible(x = NULL))
   }
   h5obj$link_delete(name = name, ...)
@@ -394,8 +380,8 @@
     if (show.warnings) {
       warning(
         "H5 group already exists: ", file_warning, group_warning,
-        "\n  New sub-group: ", path,
-        immediate. = TRUE, call. = FALSE
+        "\n  Target group: ", path,
+        immediate. = TRUE
       )
     }
   }
@@ -512,7 +498,7 @@
 ) {
   h5d <- h5Open(x = h5group, name = name)
   if (!identical(x = h5d, y = h5group)) {
-    on.exit(expr = h5d$close(), add = TRUE)
+    on.exit(expr = h5d$close())
   }
   if (!inherits(x = h5d, "H5D")) {
     stop("\n  '", h5d$get_obj_name(), "' is not an H5D")
@@ -537,7 +523,7 @@
 ) {
   h5d <- h5Open(x = h5group, name = name)
   if (!identical(x = h5d, y = h5group)) {
-    on.exit(expr = h5d$close(), add = TRUE)
+    on.exit(expr = h5d$close())
   }
   if (!inherits(x = h5d, what = "H5D")) {
     stop("\n  '", name, "' is not an H5D")
@@ -560,7 +546,7 @@
   if (!is.null(x = name)) {
     h5obj <- h5Open(x = h5group, name = name)
     if (!identical(x = h5obj, y = h5group)) {
-      on.exit(expr = h5obj$close(), add = TRUE)
+      on.exit(expr = h5obj$close())
     }
     if (inherits(x = h5obj, what = "H5D")) {
       return(h5ReadDataset(x = h5obj, transpose = transpose))
@@ -590,9 +576,9 @@
   if (!is.function(x = toS4.func)) {
     stop("\n  'toS4.func' must be NULL or a function.")
   }
-  S4Class <- .h5attr(h5obj = h5group, which = "S4Class")
-  return(toS4.func(r_obj, S4Class))
+  return(toS4.func(r_obj))
 }
+
 
 ## Assertive helpers ===========================================================
 #' @importFrom hdf5r H5D
@@ -750,9 +736,7 @@
     ...
   )
   h5d <- h5Open(x = h5group, name = name)
-  if (!identical(x = h5d, y = h5group)) {
-    on.exit(expr = h5d$close(), add = TRUE)
-  }
+  on.exit(expr = h5d$close(), add = TRUE)
   idx_list <- NULL
   if (transpose) {
     idx_list <- lapply(X = dims, FUN = seq_len)
@@ -872,7 +856,7 @@
   if (ncol(x = robj) == 0) {
     ## Must add an empty 'column-order' to match anndata's IOSpec
     h5obj <- h5group$open(name = name)
-    on.exit(expr = h5obj$close(), add = TRUE)
+    on.exit(expr = h5obj$close())
     h5space <- H5S$new(dims = 0, maxdims = 0)
     on.exit(expr = h5space$close(), add = TRUE)
     h5a <- h5obj$create_attr(
@@ -948,7 +932,6 @@
   return(invisible(x = NULL))
 }
 
-#' @importClassesFrom Matrix dgCMatrix
 .h5_set_sparse_attrs <- function(
     robj,
     h5group, 
@@ -1040,6 +1023,7 @@
   return(invisible(x = NULL))
 }
 
+#' @importFrom hdf5r h5garbage_collect
 .h5read_factor <- function(h5obj) {
   h5codes <- h5obj$open(name = 'codes')
   on.exit(expr = h5codes$close(), add = TRUE)
@@ -1047,13 +1031,14 @@
   on.exit(expr = h5categories$close(), add = TRUE)
   codes <- h5codes$read()
   categories <- h5categories$read()
+  h5garbage_collect()
   r_obj <- factor(x = categories[codes + 1L], levels = categories)
   return(r_obj)
 }
 
 .h5read_list <- function(h5obj, transpose = FALSE, ...) {
-  elem_names <- h5obj$names
   r_obj <- list()
+  elem_names <- h5obj$names
   if (length(x = elem_names) == 0) {
     return(r_obj)
   }
@@ -1065,18 +1050,18 @@
 
 .h5get_column_order <- function(h5obj) {
   h5a <- h5obj$attr_open(attr_name = "column-order")
-  on.exit(expr = h5a$close(), add = TRUE)
+  on.exit(expr = h5a$close())
   h5space <- h5a$get_space()
   on.exit(expr = h5space$close(), add = TRUE)
   if (h5space$dims == 0) {
-    return(NULL)
+    return(invisible(x = NULL))
   }
   return(h5a$read())
 }
 
 .h5read_dataframe <- function(h5obj) {
   col_orders <- .h5get_column_order(h5obj = h5obj)
-  index <- .h5attr(h5obj = h5obj, which = "_index")
+  index <- h5Attr(x = h5obj, which = "_index")
   r_list <- .h5read_list(h5obj = h5obj)
   rownames <- NULL
   if (!is.null(x = index)) {
@@ -1089,20 +1074,33 @@
   if (length(x = r_list) == 0) {
     return(data.frame(row.names = rownames, stringsAsFactors = FALSE))
   }
+  # Check nrows for data.frame
+  len <- lengths(x = r_list)
+  nrows <- max(len)
+  rm_names <- names(x = r_list)[len != nrows]
+  if (length(x = rm_names) > 0) {
+    warning(
+      "Remove columns whose length is not ", nrows, ": \n  ",
+      paste(rm_names, collapse = ", "),
+      immediate. = TRUE, call. = FALSE
+    )
+    r_list <- r_list[len == nrows]
+  }
   return(data.frame(r_list, row.names = rownames, stringsAsFactors = FALSE))
 }
 
 #' @importFrom Matrix sparseMatrix
+#' @importFrom hdf5r h5garbage_collect
 #' @importMethodsFrom Matrix t
 .h5read_sparse <- function(h5obj, transpose = FALSE) {
-  dims <- .h5attr(h5obj = h5obj, which = "shape")
+  dims <- h5Attr(x = h5obj, which = "shape")
   h5data <- h5obj$open(name = "data")
   on.exit(expr = h5data$close(), add = TRUE)
   h5indices <- h5obj$open(name = "indices")
   on.exit(expr = h5indices$close(), add = TRUE)
   h5indptr <- h5obj$open(name = "indptr")
   on.exit(expr = h5indptr$close(), add = TRUE)
-  encode <- .h5attr(h5obj = h5obj, which = "encoding-type")
+  encode <- h5Attr(x = h5obj, which = "encoding-type")
   m <- switch(
     EXPR = encode,
     "csr_matrix" = sparseMatrix(
@@ -1122,6 +1120,7 @@
       repr = "R"
     )
   )
+  h5garbage_collect()
   if (h5Exists(x = h5obj, name = "row_names")) {
     rownames(x = m) <- h5ReadDataset(x = h5obj, name = "row_names")
   }

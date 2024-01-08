@@ -27,7 +27,6 @@
 #' @export
 h5AbsLinkName <- function(name) {
   name <- name[1]
-  name <- gsub(pattern = "\\/*$", replacement = "", x = name)
   if (!any(isValidCharacters(x = name))) {
     name <- ""
   }
@@ -137,7 +136,7 @@ h5TryOpen <- function(
       if (!do.retry) {
         stop(e)
       }
-      message("Keep retrying per minute with 'timeout': ", timeout, " s")
+      message("Keep retrying per minute with 'timeout' set to ", timeout, " s")
       time <- 0
       while(time < timeout) {
         Sys.sleep(time = interval)
@@ -150,10 +149,7 @@ h5TryOpen <- function(
         }
         time <- time + interval
       }
-      stop(
-        "Reach a timeout after ", time, " s. ", 
-        "Cannot open '", filename, "': \n", e
-      )
+      stop("Reach a timeout after ", time, " s. Cannot open '", filename, "'")
     }
   ))
 }
@@ -363,13 +359,13 @@ h5Move <- function(
   h5fh <- h5TryOpen(filename = file, mode = "r+")
   on.exit(expr = h5fh$close())
   if (!h5Exists(x = h5fh, name = from.name)) {
-    stop("Source object doesn't exist: ", from.name)
+    stop("Cannot move a non-existing object: ", from.name)
   }
   if (h5Exists(x = h5fh, name = to.name)) {
     if (!overwrite) {
       warning(
-        "Destination object already exists: ", to.name,
-        "\nSet 'overwrite = TRUE' to remove it.",
+        "Destination object already exists. ",
+        "Set 'overwrite = TRUE' to remove it.",
         immediate. = TRUE
       )
       return(invisible(x = NULL))
@@ -379,8 +375,8 @@ h5Move <- function(
     }
     h5fh$link_delete(name = to.name)
   }
-  .h5group_create_group(
-    h5group = h5fh, 
+  h5CreateGroup(
+    x = h5fh, 
     name = dirname(path = to.name), 
     show.warnings = FALSE
   )
@@ -445,10 +441,10 @@ h5Backup <- function(
     )
   }
   if (identical(x = from.file, y = to.file)) {
-    stop("\nThe source file and the target file are identical.")
+    stop("\n  The source file and the target file are identical.")
   }
   if (!overwrite && file.exists(to.file)) {
-    stop("\nThe destination file exists, please set 'overwrite = TRUE'")
+    stop("The destination file exists, please set 'overwrite = TRUE'")
   }
   h5fh <- h5TryOpen(filename = from.file, mode = "r")
   all_links <- h5List(
@@ -467,7 +463,7 @@ h5Backup <- function(
     file.copy(from = from.file, to = to.file, overwrite = TRUE)
     return(to.file)
   }
-  on.exit(expr = h5fh$close(), add = TRUE)
+  on.exit(expr = h5fh$close())
   all_links <- all_links[all_links$name %in% keep_links, , drop = FALSE]
   
   to.h5fh <- h5TryOpen(filename = to.file, mode = "w")
@@ -562,7 +558,7 @@ h5Overwrite <- function(file, name, overwrite) {
       immediate. = TRUE
     )
     h5fh <- h5TryOpen(filename = file, mode = "w")
-    h5fh$close()
+    on.exit(expr = h5fh$close())
     return(file)
   }
   if (!h5Exists(x = file, name = name)) {
@@ -582,19 +578,20 @@ h5Overwrite <- function(file, name, overwrite) {
     "\n  File: ", file,
     "\n  Object: ", name
   )
+  file.rename(from = file, to = tmp.file)
   tryCatch(
     expr = {
       h5Backup(
-        from.file = file, 
-        to.file = tmp.file, 
+        from.file = tmp.file, 
+        to.file = file, 
         exclude = name, 
         overwrite = TRUE,
         verbose = FALSE
       )
-      file.rename(from = tmp.file, to = file)
+      unlink(x = tmp.file)
     },
     error = function(e) {
-      unlink(x = tmp.file)
+      file.rename(from = tmp.file, to = file)
       stop(e)
     }
   )

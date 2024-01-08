@@ -28,6 +28,8 @@ h5MaxDims(x, ...)
 
 \method{h5MaxDims}{H5D}(x, ...)
 
+\method{h5MaxDims}{H5D}(x, ...)
+
 \method{h5MaxDims}{H5Group}(x, name, ...)
 
 \method{h5MaxDims}{H5File}(x, name, ...)
