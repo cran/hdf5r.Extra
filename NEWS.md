@@ -1,4 +1,8 @@
-# hdf5r.Extra 0.0.4
+# hdf5r.Extra 0.0.6
+## Add
+* Use `verboseMsg()` to handle progress info.
+
+# hdf5r.Extra 0.0.5
 ## Bug fixes
 * Fixed bugs caused by `is.null` to be compatible with `hdf5r` 1.3.9.
 
