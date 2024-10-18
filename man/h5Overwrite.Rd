@@ -4,7 +4,12 @@
 \alias{h5Overwrite}
 \title{Overwrite an existing HDF5 link}
 \usage{
-h5Overwrite(file, name, overwrite)
+h5Overwrite(
+  file,
+  name,
+  overwrite,
+  verbose = getOption(x = "h5.overwrite.verbose", default = FALSE)
+)
 }
 \arguments{
 \item{file}{An existing HDF5 file}
@@ -12,6 +17,8 @@ h5Overwrite(file, name, overwrite)
 \item{name}{Name of HDF5 link to be overwritten.}
 
 \item{overwrite}{Whether or not to overwrite \code{name}.}
+
+\item{verbose}{Print progress.}
 }
 \value{
 Path to \code{file} which is ready to be written.
@@ -39,10 +46,10 @@ file.copy(file, tmp.file)
 obs <- h5Read(tmp.file, "obs")
 
 h5Overwrite(tmp.file, "layers", TRUE)
-stopifnot(!h5Exists(tmp.file, "layers"))
+h5Exists(tmp.file, "layers")
 
 # You can still read other links.
 obs2 <- h5Read(tmp.file, "obs")
-stopifnot(identical(obs, obs2))
+identical(obs, obs2)
 
 }

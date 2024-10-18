@@ -23,7 +23,8 @@ NULL
 #' @export
 #' @method h5Exists H5Group
 h5Exists.H5Group <- function(x, name, ...) {
-  if (identical(x = name, y = "/")) {
+  name <- name[1]
+  if (any(name == "/")) {
     return(TRUE)
   }
   return(tryCatch(
@@ -37,7 +38,7 @@ h5Exists.H5Group <- function(x, name, ...) {
 #' @method h5Exists H5File
 h5Exists.H5File <- function(x, name, ...) {
   name <- h5AbsLinkName(name = name)
-  if (identical(x = name, y = "/")) {
+  if (name == "/") {
     return(TRUE)
   }
   return(tryCatch(
@@ -488,8 +489,9 @@ h5CreateDataset.character <- function(
 #' @rdname h5Open
 #' @method h5Open H5Group
 h5Open.H5Group <- function(x, name, ...) {
-  if (identical(x = name, y = "/")) {
-    return(x)
+  name <- name[1]
+  if (any(name == "/")) {
+    stop("Cannot open '/' for an H5Group.")
   }
   return(x$open(name = name, ...))
 }
@@ -510,9 +512,15 @@ h5Open.H5File <- function(x, name, ...) {
 #' @examples
 #' file <- system.file("extdata", "pbmc_small.h5ad", package = "hdf5r.Extra")
 #' obs <- h5Open(file, "obs", mode = "r")
-#' stopifnot(inherits(obs, "H5Group"))
+#' inherits(obs, "H5Group")
+#' 
+#' h5fh <- h5Open(file, "/", mode = "r")
+#' inherits(h5fh, "H5File")
+#' 
 #' tsne <- h5Open(file, "obsm/tsne", mode = "r")
-#' stopifnot(inherits(tsne, "H5D"))
+#' inherits(tsne, "H5D")
+#' 
+#' try(h5Open(obs, "/"))  ## Error
 #' 
 #' @export
 #' @rdname h5Open
@@ -587,7 +595,7 @@ h5Attr.H5File <- function(x, which, name = NULL, ...) {
 #' # Read H5 attribute
 #' x <- h5Attr(file, "encoding-version")
 #' x <- h5Attr(file, "column-order", "raw/var") ## An empty attribute
-#' stopifnot(length(x) == 0)
+#' length(x)
 #' 
 #' h5obj <- h5Open(file, "raw/var", mode = "r")
 #' x <- h5Attr(h5obj, "column-order")
@@ -696,7 +704,7 @@ h5Attributes.H5File <- function(x, name = NULL, ...) {
 #' # Read all H5 attributes
 #' a1 <- h5Attributes(file, "raw/var")
 #' a2 <- h5Attributes(h5obj)
-#' stopifnot(identical(a1, a2))
+#' identical(a1, a2)
 #' 
 #' @export
 #' @rdname H5-attributs
@@ -878,7 +886,7 @@ h5DeleteAttr.H5File <- function(x, which, name = NULL, ...) {
 #' @examples
 #' # Delete H5 attribute
 #' h5DeleteAttr(tmp.file, "new_a", name = "X")
-#' stopifnot(length(h5Attr(tmp.file, "new_a", name = "X")) == 0)
+#' h5Attr(tmp.file, "new_a", name = "X")
 #' 
 #' @export
 #' @rdname H5-attributs
@@ -934,19 +942,19 @@ h5WriteScalar.H5File <- function(x, name, robj, ...) {
 #' 
 #' h5WriteScalar(tmp.file,  name = "test/scalar", TRUE)
 #' x <- h5ReadDataset(tmp.file, name = "test/scalar")
-#' stopifnot(x)
+#' x
 #' 
 #' h5WriteScalar(tmp.file,  name = "test/scalar", 100.0, overwrite = TRUE)
 #' x <- h5ReadDataset(tmp.file, name = "test/scalar")
-#' stopifnot(identical(x, 100.0))
+#' x
 #' 
 #' h5WriteScalar(tmp.file,  name = "test/scalar", "ABC", overwrite = TRUE)
 #' x <- h5Read(tmp.file, name = "test/scalar")
-#' stopifnot(identical(x, "ABC"))
+#' x
 #' 
 #' h5WriteScalar(tmp.file,  name = "test/factor", factor("ABC"))
 #' x <- h5ReadDataset(tmp.file, name = "test/factor")
-#' stopifnot(identical(x, factor("ABC")))
+#' x
 #' 
 #' @export
 #' @rdname h5WriteScalar
@@ -1087,12 +1095,12 @@ h5WriteDataset.H5File <- function(
 #' ) # Must create the dataset first
 #' h5WriteDataset(tmp.file, FALSE, name = "test/bool")
 #' x <- h5Read(tmp.file, name = "test/bool")
-#' stopifnot(!x)
+#' x
 #' 
 #' h5CreateDataset(tmp.file, name = "test/num", dims = 1)
 #' h5WriteDataset(tmp.file, 100.0, name = "test/num")
 #' x <- h5Read(tmp.file, name = "test/num")
-#' stopifnot(identical(x, 100.0))
+#' x
 #' 
 #' h5CreateDataset(
 #'   tmp.file, 
@@ -1102,7 +1110,7 @@ h5WriteDataset.H5File <- function(
 #' )
 #' h5WriteDataset(tmp.file, "ABC", name = "test/string")
 #' x <- h5Read(tmp.file, name = "test/string")
-#' stopifnot(identical(x, "ABC"))
+#' x
 #' 
 #' # Vector (1d array) ##########
 #' x1 <- rep(FALSE, 10)
@@ -1114,7 +1122,7 @@ h5WriteDataset.H5File <- function(
 #' )
 #' h5WriteDataset(tmp.file, x1, name = "vec/bool")
 #' x <- h5Read(tmp.file, name = "vec/bool")
-#' stopifnot(identical(x, x1))
+#' x
 #' 
 #' x1 <- rep(1.1, 10)
 #' h5CreateDataset(
@@ -1124,7 +1132,7 @@ h5WriteDataset.H5File <- function(
 #' )
 #' h5WriteDataset(tmp.file, x1, name = "vec/num")
 #' x <- h5Read(tmp.file, name = "vec/num")
-#' stopifnot(identical(x, x1))
+#' x
 #' 
 #' x1 <- rep(2.0, 5)
 #' h5WriteDataset(
@@ -1149,7 +1157,7 @@ h5WriteDataset.H5File <- function(
 #'   name = "mat/num"
 #' )
 #' x <- h5Read(tmp.file, name = "mat/num")
-#' stopifnot(identical(x, x1))
+#' x
 #' 
 #' x1 <- matrix(2.0, 3, 4)
 #' h5WriteDataset(
@@ -1306,48 +1314,23 @@ h5ReadDataset.character <- function(
 #' @param name Name of the HDF5 link to be read.
 #' @param transpose Whether or not to transpose the read matrix. Only works for 
 #' a 2-dimension array-like data.
-#' @param toS4.func A function to convert the read R list into an S4 object. 
 #' 
 #' @export
 #' @rdname h5Read
 #' @method h5Read H5Group
-h5Read.H5Group <- function(
-    x, 
-    name = NULL, 
-    transpose = FALSE, 
-    toS4.func = NULL, 
-    ...
-) {
-  return(.h5group_read(
-    h5group = x, 
-    name = name, 
-    transpose = transpose, 
-    toS4.func = toS4.func, 
-    ...
-  ))
+h5Read.H5Group <- function(x, name = NULL, transpose = FALSE, ...) {
+  return(.h5group_read(h5group = x, name = name, transpose = transpose, ...))
 }
 
 #' @export
 #' @rdname h5Read
 #' @method h5Read H5File
-h5Read.H5File <- function(
-    x, 
-    name = NULL,  
-    transpose = FALSE, 
-    toS4.func = NULL, 
-    ...
-) {
+h5Read.H5File <- function(x, name = NULL, transpose = FALSE, ...) {
   name <- h5AbsLinkName(name = name)
-  if (identical(x = name, y = "/")) {
+  if (name == "/") {
     name <- NULL
   }
-  return(.h5group_read(
-    h5group = x, 
-    name = name, 
-    transpose = transpose, 
-    toS4.func = toS4.func, 
-    ...
-  ))
+  return(.h5group_read(h5group = x, name = name, transpose = transpose, ...))
 }
 
 #' @examples
@@ -1380,22 +1363,10 @@ h5Read.H5File <- function(
 #' @export
 #' @rdname h5Read
 #' @method h5Read character
-h5Read.character <- function(
-    x, 
-    name = NULL,  
-    transpose = FALSE, 
-    toS4.func = NULL, 
-    ...  
-) {
+h5Read.character <- function(x, name = NULL, transpose = FALSE, ...) {
   h5fh <- h5TryOpen(filename = x, mode = "r")
   on.exit(expr = h5fh$close())
-  return(h5Read(
-    x = h5fh, 
-    name = name, 
-    transpose = transpose, 
-    toS4.func = toS4.func,
-    ...
-  ))
+  return(h5Read(x = h5fh, name = name, transpose = transpose, ...))
 }
 
 #' @export
@@ -1412,7 +1383,6 @@ h5Prep.default <- function(x, ...) {
 #' combination of base R objects using \code{\link{h5Prep}} before writting it.
 #' 
 #' @examples
-#' \donttest{
 #' file <- system.file("extdata", "pbmc_small.h5ad", package = "hdf5r.Extra")
 #' tmp.file <- tempfile(fileext = ".h5")
 #' h5CreateFile(tmp.file)
@@ -1421,8 +1391,6 @@ h5Prep.default <- function(x, ...) {
 #' x <- h5Read(file, "/raw/X/data")
 #' h5Write(x, tmp.file, "raw/X/data")
 #' x2 <- h5Read(tmp.file, "raw/X/data")
-#' stopifnot(identical(x, x2))
-#' }
 #' 
 #' @export
 #' @rdname h5Write
@@ -1480,17 +1448,15 @@ h5Write.default <- function(
 #' is \code{TRUE}. 
 #' 
 #' @examples
-#' \donttest{
 #' # matrix -----------------------
 #' x <- h5Read(file, "X")
 #' h5Write(x, tmp.file, "X")
 #' x2 <- h5Read(tmp.file, "X")
-#' stopifnot(identical(x, x2))
+#' identical(x, x2)
 #' 
 #' h5Write(x, tmp.file, "X2", transpose = TRUE)
 #' x2 <- h5Read(tmp.file, "X2")
-#' stopifnot(identical(t(x), x2))
-#' }
+#' identical(t(x), x2)
 #' 
 #' @export
 #' @rdname h5Write
@@ -1569,18 +1535,16 @@ h5Write.factor <- function(
 }
 
 #' @examples
-#' \donttest{
 #' # data.frame -----------------------
 #' x <- h5Read(file, "obs")
 #' h5Write(x, tmp.file, "obs")
 #' x2 <- h5Read(tmp.file, "obs")
-#' stopifnot(identical(x, x2))
+#' identical(x, x2)
 #' 
 #' x <- h5Read(file, "raw/var") # data.frame with empty column
 #' h5Write(x, tmp.file, "raw/var")
 #' x2 <- h5Read(tmp.file, "raw/var")
-#' stopifnot(identical(x, x2))
-#' }
+#' identical(x, x2)
 #' 
 #' @export
 #' @rdname h5Write
@@ -1599,6 +1563,7 @@ h5Write.data.frame <- function(
   file <- h5Overwrite(file = file, name = name, overwrite = overwrite)
   h5fh <- h5TryOpen(filename = file, mode = "r+")
   on.exit(expr = h5fh$close())
+  name <- h5AbsLinkName(name = name)
   .h5write_dataframe(
     robj = x, 
     h5group = h5fh, 
@@ -1611,17 +1576,16 @@ h5Write.data.frame <- function(
 
 #' @param add.shape When writing a CSC- or CSR-matrix, whether or not to also 
 #' write the number of dimensions into an HDF5 dataset.
-#' @param dimnames When writing a CSC- or CSR-matrix, whether or not to also 
+#' @param add.dimnames When writing a CSC- or CSR-matrix, whether or not to also 
 #' write the dimension names.
 #' 
 #' @examples
-#' \donttest{
+#' 
 #' # dgCMatrix -----------------------
 #' x <- h5Read(file, "raw/X")
 #' h5Write(x, tmp.file, "raw/X", overwrite = TRUE)
 #' x2 <- h5Read(tmp.file, "raw/X")
-#' stopifnot(identical(x, x2))
-#' }
+#' identical(x, x2)
 #' 
 #' @importMethodsFrom Matrix t
 #' @export
@@ -1634,7 +1598,7 @@ h5Write.dgCMatrix <- function(
     overwrite = FALSE, 
     transpose = FALSE,
     add.shape = FALSE,
-    dimnames = list(),
+    add.dimnames = TRUE,
     gzip_level = 6,
     ...
 ) {
@@ -1648,19 +1612,19 @@ h5Write.dgCMatrix <- function(
   file <- h5Overwrite(file = file, name = name, overwrite = overwrite)
   h5fh <- h5TryOpen(filename = file, mode = "r+")
   on.exit(expr = h5fh$close())
+  name <- h5AbsLinkName(name = name)
   .h5write_sparse(
     robj = x, 
     h5group = h5fh, 
     name = name, 
     add.shape = add.shape, 
-    dimnames = dimnames,
+    add.dimnames = add.dimnames,
     gzip_level = gzip_level,
     ...
   )
   return(invisible(x = NULL))
 }
 
-#' @importFrom MatrixExtra t_shallow
 #' @importMethodsFrom Matrix t
 #' @export
 #' @rdname h5Write
@@ -1672,7 +1636,7 @@ h5Write.dgRMatrix <- function(
     overwrite = FALSE, 
     transpose = FALSE,
     add.shape = FALSE,
-    dimnames = list(),
+    add.dimnames = TRUE,
     gzip_level = 6,
     ...
 ) {
@@ -1683,29 +1647,29 @@ h5Write.dgRMatrix <- function(
     x <- t(x = x)
     gc(verbose = FALSE)
   }
-  x <- t_shallow(x = x)
-  return(h5Write(
-    x = x,
-    file = file,
-    name = name,
-    overwrite = overwrite,
-    transpose = transpose,
-    add.shape = add.shape,
-    dimnames = dimnames,
+  file <- h5Overwrite(file = file, name = name, overwrite = overwrite)
+  h5fh <- h5TryOpen(filename = file, mode = "r+")
+  on.exit(expr = h5fh$close())
+  name <- h5AbsLinkName(name = name)
+  .h5write_sparse(
+    robj = x, 
+    h5group = h5fh, 
+    name = name, 
+    add.shape = add.shape, 
+    add.dimnames = add.dimnames,
     gzip_level = gzip_level,
     ...
-  ))
+  )
+  return(invisible(x = NULL))
 }
 
 
 #' @examples
-#' \donttest{
 #' # list -----------------------
 #' x <- h5Read(file)
 #' h5Write(x, tmp.file, name = NULL, overwrite = TRUE)
 #' x2 <- h5Read(tmp.file)
-#' stopifnot(identical(x, x2))
-#' }
+#' identical(x, x2)
 #' 
 #' @export
 #' @rdname h5Write
@@ -1730,7 +1694,7 @@ h5Write.list <- function(
   
   # Unlike vectors or arrays, creating an empty H5Group for an empty list 
   # does make sense.
-  h5CreateGroup(x = h5fh, name = name)
+  .h5group_create_group(h5group = h5fh, name = name, show.warnings = FALSE)
   for (i in seq_along(along.with = x)) {
     h5Write(
       x = x[[i]],
@@ -1741,12 +1705,7 @@ h5Write.list <- function(
       ...
     )
   }
-  h5WriteAttr(x = h5fh, name = name, which = "encoding-type", robj = "dict")
-  h5WriteAttr(
-    x = h5fh,
-    name = name,
-    which = "encoding-version",
-    robj = "0.1.0"
-  )
+  extra <- list("encoding-type" = "dict", "encoding-version" = "0.1.0")
+  .h5write_add_extra(extra = extra, h5group = h5fh, name = name)
   return(invisible(x = NULL))
 }

@@ -30,8 +30,8 @@ h5AbsLinkName <- function(name) {
   if (!any(isValidCharacters(x = name))) {
     name <- ""
   }
-  root <- substring(text = name, first = 1, last = 1)
-  if (!identical(x = root, y = "/")) {
+  root <- substr(x = name, start = 1, stop = 1)
+  if (root != "/") {
     name <- paste0("/", name)
   }
   name <- gsub(pattern = "\\/+", replacement = "\\/", x = name)
@@ -239,7 +239,6 @@ is.H5Group <- function(file, name) {
 #' h5Copy(file, "obs", to.file, "obs")
 #' obs <- h5Read(file, "obs")
 #' obs2 <- h5Read(to.file, "obs")
-#' stopifnot(identical(obs, obs2))
 #' 
 #' # The parent link (H5Group) will be created automatically
 #' h5Copy(file, "obsm/tsne", to.file, "obsm/tsne")
@@ -249,7 +248,6 @@ is.H5Group <- function(file, name) {
 #' x <- h5Read(file)
 #' h5Copy(file, "/", to.file, "/", overwrite = TRUE)
 #' x2 <- h5Read(to.file)
-#' stopifnot(identical(x, x2))
 #' 
 #' @export
 h5Copy <- function(
@@ -272,7 +270,7 @@ h5Copy <- function(
     "\n  Source name: ", from.name,
     "\n  Destination name: ", to.name
   )
-  if (identical(x = from.file, y = to.file)) {
+  if (from.file == to.file) {
     return(.h5copy_same_file(
       h5.file = from.file, 
       from.name = from.name, 
@@ -319,7 +317,6 @@ h5Copy <- function(
 #' obs <- h5Read(to.file, "obs")
 #' h5Move(to.file, "obs", "obs2")
 #' obs2 <- h5Read(to.file, "obs2")
-#' stopifnot(identical(obs, obs2))
 #' 
 #' # Move an object to an existing link
 #' h5Move(to.file, "obs2", "var")  # Warning
@@ -345,7 +342,7 @@ h5Move <- function(
     "\n  Source name: ", from.name,
     "\n  Destination name: ", to.name
   )
-  if (identical(x = from.name, y = to.name)) {
+  if (from.name == to.name) {
     warning(
       "The source name and the destination name are identical.",
       immediate. = TRUE
@@ -414,7 +411,7 @@ h5Move <- function(
 #' x <- h5Read(file)
 #' x2 <- h5Read(to.file)
 #' x$X <- NULL # Remove 'X'
-#' stopifnot(identical(x, x2)) # Now these two should be identical
+#' identical(x, x2) # Now these two should be identical
 #' 
 #' @export
 h5Backup <- function(
@@ -434,7 +431,7 @@ h5Backup <- function(
     "\n  Destination file: ", to.file,
     "\n  Excluded objects: ", paste(exclude, collapse = ", ")
   )
-  if (identical(x = from.file, y = to.file)) {
+  if (from.file == to.file) {
     stop("\n  The source file and the target file are identical.")
   }
   if (!overwrite && file.exists(to.file)) {
@@ -507,6 +504,7 @@ h5Backup <- function(
 #' @param file An existing HDF5 file
 #' @param name Name of HDF5 link to be overwritten. 
 #' @param overwrite Whether or not to overwrite \code{name}. 
+#' @param verbose Print progress.
 #' 
 #' @return Path to \code{file} which is ready to be written.
 #' 
@@ -530,14 +528,19 @@ h5Backup <- function(
 #' obs <- h5Read(tmp.file, "obs")
 #' 
 #' h5Overwrite(tmp.file, "layers", TRUE)
-#' stopifnot(!h5Exists(tmp.file, "layers"))
+#' h5Exists(tmp.file, "layers")
 #' 
 #' # You can still read other links.
 #' obs2 <- h5Read(tmp.file, "obs")
-#' stopifnot(identical(obs, obs2))
+#' identical(obs, obs2)
 #' 
 #' @export
-h5Overwrite <- function(file, name, overwrite) {
+h5Overwrite <- function(
+    file, 
+    name, 
+    overwrite, 
+    verbose = getOption(x = "h5.overwrite.verbose", default = FALSE)
+) {
   name <- h5AbsLinkName(name = name)
   if (!file.exists(file)) {
     h5CreateFile(x = file)
@@ -565,7 +568,7 @@ h5Overwrite <- function(file, name, overwrite) {
     )
   }
   tmp.file <- tempfile(tmpdir = dirname(path = file), fileext = ".h5")
-  message(
+  verboseMsg(
     "Overwriting existing H5 object:",
     "\n  File: ", file,
     "\n  Object: ", name

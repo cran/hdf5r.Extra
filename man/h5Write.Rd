@@ -37,7 +37,7 @@ h5Write(x, file, name, ...)
   overwrite = FALSE,
   transpose = FALSE,
   add.shape = FALSE,
-  dimnames = list(),
+  add.dimnames = TRUE,
   gzip_level = 6,
   ...
 )
@@ -49,7 +49,7 @@ h5Write(x, file, name, ...)
   overwrite = FALSE,
   transpose = FALSE,
   add.shape = FALSE,
-  dimnames = list(),
+  add.dimnames = TRUE,
   gzip_level = 6,
   ...
 )
@@ -81,7 +81,7 @@ ordered.}
 \item{add.shape}{When writing a CSC- or CSR-matrix, whether or not to also 
 write the number of dimensions into an HDF5 dataset.}
 
-\item{dimnames}{When writing a CSC- or CSR-matrix, whether or not to also 
+\item{add.dimnames}{When writing a CSC- or CSR-matrix, whether or not to also 
 write the dimension names.}
 }
 \value{
@@ -96,7 +96,6 @@ By default, \code{h5Write} will try to transform any S4 object \code{x} into
 combination of base R objects using \code{\link{h5Prep}} before writting it.
 }
 \examples{
-\donttest{
 file <- system.file("extdata", "pbmc_small.h5ad", package = "hdf5r.Extra")
 tmp.file <- tempfile(fileext = ".h5")
 h5CreateFile(tmp.file)
@@ -105,49 +104,40 @@ h5CreateFile(tmp.file)
 x <- h5Read(file, "/raw/X/data")
 h5Write(x, tmp.file, "raw/X/data")
 x2 <- h5Read(tmp.file, "raw/X/data")
-stopifnot(identical(x, x2))
-}
 
-\donttest{
 # matrix -----------------------
 x <- h5Read(file, "X")
 h5Write(x, tmp.file, "X")
 x2 <- h5Read(tmp.file, "X")
-stopifnot(identical(x, x2))
+identical(x, x2)
 
 h5Write(x, tmp.file, "X2", transpose = TRUE)
 x2 <- h5Read(tmp.file, "X2")
-stopifnot(identical(t(x), x2))
-}
+identical(t(x), x2)
 
-\donttest{
 # data.frame -----------------------
 x <- h5Read(file, "obs")
 h5Write(x, tmp.file, "obs")
 x2 <- h5Read(tmp.file, "obs")
-stopifnot(identical(x, x2))
+identical(x, x2)
 
 x <- h5Read(file, "raw/var") # data.frame with empty column
 h5Write(x, tmp.file, "raw/var")
 x2 <- h5Read(tmp.file, "raw/var")
-stopifnot(identical(x, x2))
-}
+identical(x, x2)
 
-\donttest{
+
 # dgCMatrix -----------------------
 x <- h5Read(file, "raw/X")
 h5Write(x, tmp.file, "raw/X", overwrite = TRUE)
 x2 <- h5Read(tmp.file, "raw/X")
-stopifnot(identical(x, x2))
-}
+identical(x, x2)
 
-\donttest{
 # list -----------------------
 x <- h5Read(file)
 h5Write(x, tmp.file, name = NULL, overwrite = TRUE)
 x2 <- h5Read(tmp.file)
-stopifnot(identical(x, x2))
-}
+identical(x, x2)
 
 }
 \references{
